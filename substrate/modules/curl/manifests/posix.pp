@@ -5,8 +5,8 @@ class curl::posix {
   $file_cache_dir        = $curl::file_cache_dir
   $install_dir           = $curl::install_dir
 
-  $source_filename  = "curl-7.49.0.tar.gz"
-  $source_url = "https://dl.uxnr.de/mirror/curl/${source_filename}"
+  $source_filename  = "curl-7.49.1.tar.gz"
+  $source_url = "https://curl.haxx.se/download/${source_filename}"
   $source_file_path = "${file_cache_dir}/${source_filename}"
   $source_dir_name  = regsubst($source_filename, '^(.+?)\.tar\.gz$', '\1')
   $source_dir_path  = "${file_cache_dir}/${source_dir_name}"
