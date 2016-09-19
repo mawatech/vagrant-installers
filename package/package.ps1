@@ -270,6 +270,8 @@ Copy-Item "$($Dir)\support\windows\license.rtf" `
     -Destination "$($InstallerTmpDir)\assets\license.rtf"
 Copy-Item "$($Dir)\support\windows\burn_logo.bmp" `
     -Destination "$($InstallerTmpDir)\assets\burn_logo.bmp"
+Copy-Item "$($Dir)\support\windows\vagrant.ico" `
+    -Destination "$($InstallerTmpDir)\assets\vagrant.ico"
 Copy-Item "$($Dir)\support\windows\vagrant-en-us.wxl" `
     -Destination "$($InstallerTmpDir)\vagrant-en-us.wxl"
 
@@ -343,6 +345,10 @@ $contents = @"
      <InstallExecuteSequence>
        <ScheduleReboot After="InstallFinalize"><![CDATA[UILevel <> 2]]></ScheduleReboot>
      </InstallExecuteSequence>
+
+     <!-- Include application icon for add/remove programs -->
+     <Icon Id="icon.ico" SourceFile="$($InstallerTmpDir)\assets\vagrant.ico" />
+     <Property Id="ARPPRODUCTICON" Value="icon.ico" />
 
      <!-- Get the proper system directory -->
      <SetDirectory Id="WINDOWSVOLUME" Value="[WindowsVolume]" />
@@ -481,7 +487,7 @@ $contents = @"
             Permanent="yes"
             DetectCondition="vcredist AND (vcredist >= 1)" />
           <RollbackBoundary />
-          <MsiPackage SourceFile="$($InstallerTmpDir)\vagrant.msi" Compressed="yes" Vital="yes">
+          <MsiPackage SourceFile="$($InstallerTmpDir)\vagrant.msi" Compressed="yes" Vital="yes" Visible="yes">
             <MsiProperty Name="INSTALLDIR" Value="[InstallFolder]" />
           </MsiPackage>
         </Chain>
@@ -514,6 +520,22 @@ Write-Host "Running bundle light.exe"
     -loc "$($InstallerTmpDir)\vagrant-en-us.wxl" `
     -out $BundleOutputPath `
     "$($InstallerTmpDir)\vagrant-bundle.wixobj"
+
+#--------------------------------------------------------------------
+# Sign
+#--------------------------------------------------------------------
+if ($SignKey) {
+    $SignTool = "signtool.exe"
+    if ($SignPath) {
+        $SignTool = $SignPath
+    }
+
+    &$SignTool sign `
+        /t http://timestamp.digicert.com `
+        /f $SignKey `
+        /p $SignKeyPassword `
+        $BundleOutputPath
+}
 
 #--------------------------------------------------------------------
 # Clean up
