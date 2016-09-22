@@ -10,7 +10,7 @@ class readline(
 ) {
   require build_essential
 
-  $source_filename  = "readline-6.3.tar.gz"
+  $source_filename  = "readline-7.0.tar.gz"
   $source_url = "http://ftpmirror.gnu.org/readline/${source_filename}"
   $source_file_path = "${file_cache_dir}/${source_filename}"
   $source_dir_name  = regsubst($source_filename, '^(.+?)\.tar\.gz$', '\1')
