@@ -10,13 +10,13 @@ class zlib(
 ) {
   require build_essential
 
-  $source_filename  = "zlib-1.2.9.tar.gz"
+  $source_filename  = "zlib-1.2.10.tar.gz"
   $source_url = "http://zlib.net/${source_filename}"
   $source_file_path = "${file_cache_dir}/${source_filename}"
   $source_dir_name  = regsubst($source_filename, '^(.+?)\.tar\.gz$', '\1')
   $source_dir_path  = "${file_cache_dir}/${source_dir_name}"
 
-  $lib_version = "1.2.9"
+  $lib_version = "1.2.10"
   $lib_short_version = "1"
 
   # Determine if we have an extra environmental variables we need to set
