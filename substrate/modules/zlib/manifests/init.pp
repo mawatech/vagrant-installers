@@ -76,4 +76,15 @@ class zlib(
       subscribe => Autotools["libz"],
     }
   }
+
+  if $kernel == 'Linux' {
+    $libz_paths = [
+      "${prefix}/lib/libz.so",
+    ]
+
+    vagrant_substrate::staging::linux_chrpath{ $libz_paths:
+      require => Autotools["libz"],
+      subscribe => Autotools["libz"],
+    }
+  }
 }
