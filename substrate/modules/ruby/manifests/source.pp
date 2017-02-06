@@ -83,7 +83,7 @@ class ruby::source(
   }
 
   if $operatingsystem == 'Darwin' {
-    file { "${prefix}/include/ruby-2.2.0/x86_64-darwin15":
+    file { "${prefix}/include/ruby-2.2.6/x86_64-darwin15":
       ensure  => link,
       target  => "universal-darwin15",
       require => Autotools["ruby"],
@@ -155,8 +155,8 @@ class ruby::source(
       refreshonly => true,
     }
 
-    $embedded_include = '/vagrant-substrate/cache/ruby-2.2.5/include'
-    $replacement_include = "${installation_dir}/embedded/include/ruby-2.2.0"
+    $embedded_include = '/vagrant-substrate/cache/ruby-2.2.6/include'
+    $replacement_include = "${installation_dir}/embedded/include/ruby-2.2.6"
     exec { "adjust-ruby-include":
       command => "grep -l -I -R '${embedded_include}' '${prefix}' | xargs sed -i 's@${embedded_include}@${replacement_include}@g'",
       subscribe => Autotools["ruby"],
