@@ -18,7 +18,7 @@ class ruby::source(
   $installation_dir = hiera("installation_dir")
 
   $lib_short_version = "2.2"
-  $lib_long_version = "2.2.6"
+  $lib_long_version = "2.2.0"
 
   if $operatingsystem == 'Darwin' {
     $extra_configure_flags = ' --with-arch=x86_64'
@@ -83,7 +83,7 @@ class ruby::source(
   }
 
   if $operatingsystem == 'Darwin' {
-    file { "${prefix}/include/ruby-2.2.6/x86_64-darwin15":
+    file { "${prefix}/include/ruby-2.2.0/x86_64-darwin15":
       ensure  => link,
       target  => "universal-darwin15",
       require => Autotools["ruby"],
@@ -156,7 +156,7 @@ class ruby::source(
     }
 
     $embedded_include = '/vagrant-substrate/cache/ruby-2.2.6/include'
-    $replacement_include = "${installation_dir}/embedded/include/ruby-2.2.6"
+    $replacement_include = "${installation_dir}/embedded/include/ruby-2.2.0"
     exec { "adjust-ruby-include":
       command => "grep -l -I -R '${embedded_include}' '${prefix}' | xargs sed -i 's@${embedded_include}@${replacement_include}@g'",
       subscribe => Autotools["ruby"],
