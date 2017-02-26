@@ -6,7 +6,7 @@ class curl::posix {
   $file_cache_dir        = $curl::file_cache_dir
   $install_dir           = $curl::install_dir
 
-  $source_filename  = "curl-7.52.1.tar.gz"
+  $source_filename  = "curl-7.53.1.tar.gz"
   $source_url = "https://curl.haxx.se/download/${source_filename}"
   $source_file_path = "${file_cache_dir}/${source_filename}"
   $source_dir_name  = regsubst($source_filename, '^(.+?)\.tar\.gz$', '\1')
