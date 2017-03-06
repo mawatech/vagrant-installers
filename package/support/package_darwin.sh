@@ -14,7 +14,7 @@ DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 SUBSTRATE_DIR=$1
 VAGRANT_VERSION=$2
-OUTPUT_PATH="`pwd`/vagrant_${VAGRANT_VERSION}"
+OUTPUT_PATH="`pwd`/vagrant_${VAGRANT_VERSION}_x86_64.dmg"
 
 # Work in a temporary directory
 rm -rf package-staging
@@ -23,6 +23,17 @@ STAGING_DIR=$(cd package-staging; pwd)
 pushd $STAGING_DIR
 echo "Darwin staging dir: ${STAGING_DIR}"
 
+# Set information used for package and code signing
+
+PKG_SIGN_IDENTITY=${VAGRANT_PACKAGE_SIGN_IDENTITY:-Developer ID Installer: Mitchell Hashimoto}
+PKG_SIGN_CERT_PATH=${VAGRANT_PACKAGE_SIGN_CERT_PATH:-/vagrant/MacOS_PkgSigning.cert}
+PKG_SIGN_KEY_PATH=${VAGRANT_PACKAGE_SIGN_KEY_PATH:-/vagrant/MacOS_PkgSigning.key}
+
+CODE_SIGN_IDENTITY=${VAGRANT_CODE_SIGN_IDENTITY:-none}
+CODE_SIGN_CERT_PATH=${VAGRANT_CODE_SIGN_CERT_PATH:-none}
+CODE_SIGN_KEY_PATH=${VAGRANT_CODE_SIGN_KEY_PATH:-none}
+
+SIGN_KEYCHAIN=${VAGRANT_SIGN_KEYCHAIN:-/Library/Keychains/System.keychain}
 #-------------------------------------------------------------------------
 # Resources
 #-------------------------------------------------------------------------
@@ -60,21 +71,60 @@ exit 0
 EOF
 chmod 0755 ${STAGING_DIR}/scripts/postinstall
 
+# Install and enable package signing if available
+if [[ -f "${PKG_SIGN_CERT_PATH}" && -f "${PKG_SIGN_KEY_PATH}" ]]
+then
+    security import "${PKG_SIGN_CERT_PATH}" -k "${SIGN_KEYCHAIN}" -T /usr/bin/codesign -T /usr/bin/pkgbuild -T /usr/bin/productbuild
+    security import "${PKG_SIGN_KEY_PATH}" -k "${SIGN_KEYCHAIN}" -T /usr/bin/codesign -T /usr/bin/pkgbuild -T /usr/bin/productbuild
+    SIGN_PKG="1"
+fi
+
+# Install and enable code signing if available
+if [[ -f "${CODE_SIGN_CERT_PATH}" && -f "${CODE_SIGN_KEY_PATH}" ]]
+then
+    security import "${CODE_SIGN_CERT_PATH}" -k "${SIGN_KEYCHAIN}" -T /usr/bin/codesign
+    security import "${CODE_SIGN_KEY_PATH}" -k "${SIGN_KEYCHAIN}" -T /usr/bin/codesign
+    SIGN_CODE="1"
+fi
+
+#-------------------------------------------------------------------------
+# Code sign
+#-------------------------------------------------------------------------
+# Sign all executables within package
+if [[ "${SIGN_CODE}" -eq "1" ]]
+then
+    echo "Signing all substrate executables..."
+    find "${SUBSTRATE_DIR}" -type f -perm +0111 -exec codesign -s "${CODE_SIGN_IDENTITY}" {} \;
+fi
+
 #-------------------------------------------------------------------------
 # Pkg
 #-------------------------------------------------------------------------
 # Create the component package using pkgbuild. The component package
 # contains the raw file structure that is installed via the installer package.
-echo "Building core.pkg..."
-pkgbuild \
-    --root ${SUBSTRATE_DIR} \
-    --identifier com.vagrant.vagrant \
-    --version ${VAGRANT_VERSION} \
-    --install-location "/opt/vagrant" \
-    --scripts ${STAGING_DIR}/scripts \
-    --timestamp=none \
-    --sign "Developer ID Installer: Mitchell Hashimoto" \
-    ${STAGING_DIR}/core.pkg
+if [[ "${SIGN_PKG}" -eq "1" ]]
+then
+    echo "Building core.pkg..."
+    pkgbuild \
+        --root ${SUBSTRATE_DIR} \
+        --identifier com.vagrant.vagrant \
+        --version ${VAGRANT_VERSION} \
+        --install-location "/opt/vagrant" \
+        --scripts ${STAGING_DIR}/scripts \
+        --timestamp=none \
+        --sign "${PKG_SIGN_IDENTITY}" \
+        ${STAGING_DIR}/core.pkg
+else
+    echo "Building core.pkg..."
+    pkgbuild \
+        --root ${SUBSTRATE_DIR} \
+        --identifier com.vagrant.vagrant \
+        --version ${VAGRANT_VERSION} \
+        --install-location "/opt/vagrant" \
+        --scripts ${STAGING_DIR}/scripts \
+        --timestamp=none \
+        ${STAGING_DIR}/core.pkg
+fi
 
 # Create the distribution definition, an XML file that describes what
 # the installer will look and feel like.
@@ -113,13 +163,17 @@ EOF
 
 # Build the actual installer.
 echo "Building Vagrant.pkg..."
-if [ "${DISABLE_DMG_SIGN}" == "1" ]
+
+# Check is signing certificate is available. Install
+# and sign if found.
+if [[ "${SIGN_PKG}" -eq "1" ]]
 then
     productbuild \
         --distribution ${STAGING_DIR}/vagrant.dist \
         --resources ${STAGING_DIR}/resources \
         --package-path ${STAGING_DIR} \
         --timestamp=none \
+        --sign "${PKG_SIGN_IDENTITY}" \
         ${STAGING_DIR}/Vagrant.pkg
 else
     productbuild \
@@ -127,7 +181,6 @@ else
         --resources ${STAGING_DIR}/resources \
         --package-path ${STAGING_DIR} \
         --timestamp=none \
-        --sign "Developer ID Installer: Mitchell Hashimoto" \
         ${STAGING_DIR}/Vagrant.pkg
 fi
 #-------------------------------------------------------------------------
@@ -138,55 +191,19 @@ mkdir -p ${STAGING_DIR}/dmg
 cp ${STAGING_DIR}/Vagrant.pkg ${STAGING_DIR}/dmg/Vagrant.pkg
 cp "${DIR}/darwin/uninstall.tool" ${STAGING_DIR}/dmg/uninstall.tool
 chmod +x ${STAGING_DIR}/dmg/uninstall.tool
-mkdir ${STAGING_DIR}/dmg/.support
-cp "${DIR}/darwin/background_installer.png" ${STAGING_DIR}/dmg/.support/background.png
 
-# Create the temporary DMG
-echo "Creating temporary DMG..."
-hdiutil create \
-    -srcfolder "${STAGING_DIR}/dmg" \
-    -volname "Vagrant" \
-    -fs HFS+ \
-    -fsargs "-c c=64,a=16,e=16" \
-    -format UDRW \
-    -size 102400k \
-    ${STAGING_DIR}/temp.dmg
+echo "Creating DMG"
+dmgbuild -s "${DIR}/darwin/dmgbuild.py" -D srcfolder="${STAGING_DIR}/dmg" -D backgroundimg="${DIR}/darwin/background_installer.png" Vagrant "${OUTPUT_PATH}"
 
-# Attach the temporary DMG and read the device
-echo "Mounting and configuring temp DMG..."
-DEVICE=$(hdiutil attach -readwrite -noverify -noautoopen "${STAGING_DIR}/temp.dmg" | \
-         egrep '^/dev/' | sed 1q | awk '{print $1}')
-
-# The magic to setup the DMG for us
-echo '
-   tell application "Finder"
-     tell disk "'Vagrant'"
-           open
-           set current view of container window to icon view
-           set toolbar visible of container window to false
-           set statusbar visible of container window to false
-           set the bounds of container window to {100, 100, 605, 540}
-           set theViewOptions to the icon view options of container window
-           set arrangement of theViewOptions to not arranged
-           set icon size of theViewOptions to 72
-           set background picture of theViewOptions to file ".support:'background.png'"
-           delay 5
-           set position of item "'Vagrant.pkg'" of container window to {420, 60}
-           set position of item "uninstall.tool" of container window to {420, 220}
-           update without registering applications
-           delay 5
-     end tell
-   end tell
-' | osascript
-
-# Set the permissions and generate the final DMG
-echo "Creating final DMG..."
-chmod -Rf go-w /Volumes/Vagrant
-sync
-hdiutil detach ${DEVICE}
-hdiutil convert \
-    "${STAGING_DIR}/temp.dmg" \
-    -format UDZO \
-    -imagekey zlib-level=9 \
-    -o "${OUTPUT_PATH}"
-rm -f ${STAGING_DIR}/temp.dmg
+if [[ "${SIGN_PKG}" -ne "1" ]]
+then
+    set +x
+    echo
+    echo "!!!!!!!!!!!! WARNING !!!!!!!!!!!!"
+    echo "! Vagrant installer package is  !"
+    echo "! NOT signed. Rebuild using the !"
+    echo "! signing key for release build !"
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo
+    set -x
+fi
