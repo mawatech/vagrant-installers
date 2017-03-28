@@ -10,7 +10,7 @@ class ruby::source(
 ) {
   require build_essential
 
-  $source_filename  = "ruby-2.2.6.tar.gz"
+  $source_filename  = "ruby-2.2.7.tar.gz"
   $source_url = "https://cache.ruby-lang.org/pub/ruby/2.2/${source_filename}"
   $source_file_path = "${file_cache_dir}/${source_filename}"
   $source_dir_name  = regsubst($source_filename, '^(.+?)\.tar\.gz$', '\1')
@@ -155,7 +155,7 @@ class ruby::source(
       refreshonly => true,
     }
 
-    $embedded_include = '/vagrant-substrate/cache/ruby-2.2.6/include'
+    $embedded_include = '/vagrant-substrate/cache/ruby-2.2.7/include'
     $replacement_include = "${installation_dir}/embedded/include/ruby-2.2.0"
     exec { "adjust-ruby-include":
       command => "grep -l -I -R '${embedded_include}' '${prefix}' | xargs sed -i 's@${embedded_include}@${replacement_include}@g'",
